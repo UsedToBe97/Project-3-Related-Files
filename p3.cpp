@@ -28,6 +28,132 @@ void display(grid_t x) {
     }
 }
 
+bool dohill(creature_t &x, const grid_t & grid) {
+    int px = x.location.r;
+    int py = x.location.c;
+    if (grid.terrain[px][py] == HILL) {
+        if (!x.hillActive) {
+            x.hillActive = 1;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+bool outofbound(int nx, int ny, const grid_t & grid) {
+    if (nx < 0 || ny < 0 || nx >= grid.height || ny >= grid.width) return 1;
+    else return 0;
+}
+
+void act_hop(creature_t &x, grid_t &grid) {
+    if (dohill(x, grid)) return;
+    x.programID = (x.programID + 1) % x.species->programSize;
+    int px = x.location.r;
+    int py = x.location.c;
+    int dx[4] = {0, 1, 0, -1}, dy[4] = {1, 0, -1, 0};
+    int nx = px + dx[x.direction], ny = py + dy[x.direction];
+    if (outofbound(nx, ny, grid)) return;
+    if (grid.squares[nx][ny] != nullptr) return;
+    if (grid.terrain[nx][ny] == LAKE && x.ability[FLY] == 0) return;
+
+    x.location.r = nx;
+    x.location.c = ny;
+    grid.squares[nx][ny] = grid.squares[px][py];
+    grid.squares[px][py] = nullptr;
+}
+
+void act_left(creature_t &x, grid_t &grid) {
+    if (dohill(x, grid)) return;
+    x.programID = (x.programID + 1) % x.species->programSize;
+    int t = (int)(x.direction) + 3;
+    t %= 4;
+    x.direction = direction_t(t);
+}
+
+void act_right(creature_t &x, grid_t &grid) {
+    if (dohill(x, grid)) return;
+    x.programID = (x.programID + 1) % x.species->programSize;
+    int t = (int)(x.direction) + 1;
+    t %= 4;
+    x.direction = direction_t(t);
+}
+
+void act_infect(creature_t &x, grid_t &grid) {
+    if (dohill(x, grid)) return;
+    x.programID = (x.programID + 1) % x.species->programSize;
+    int px = x.location.r, py = x.location.c;
+    int dx[4] = {0, 1, 0, -1}, dy[4] = {1, 0, -1, 0};
+    int nx = px + dx[x.direction], ny = py + dy[x.direction];
+    if (x.ability[ARCH]) {
+        
+    } else {
+        if (outofbound(nx, ny, grid)) return;
+        if (grid.squares[nx][ny] != nullptr) return;
+        if (grid.terrain[nx][ny] == FOREST) return;
+        if (grid.squares[nx][ny]->species == grid.squares[px][py]->species) return;
+        
+        //grid.squares[px][py]->species = grid.squares[px][py]->species;
+        creature_t *t = grid.squares[px][py];
+        t->species = grid.squares[nx][nx]->species;
+        //t->
+    }
+}
+
+void act_ifempty(creature_t &x, grid_t &grid) {}
+void act_ifenemy(creature_t &x, grid_t &grid) {}
+void act_ifsame(creature_t &x, grid_t &grid) {}
+void act_ifwall(creature_t &x, grid_t &grid) {}
+void act_go(creature_t &x, grid_t &grid) {}
+
+void act(creature_t &x, grid_t &grid) {
+    int id = x.programID;
+    bool ok = 0;
+    while (!ok) {
+        switch ((x.species)->program[id].op) {
+            case HOP: 
+                act_hop(x, grid);
+                ok = 1;
+                break;
+            case LEFT:
+                act_left(x, grid);
+                ok = 1;
+                break;
+            case RIGHT:
+                act_right(x, grid);
+                ok = 1;
+                break;
+            case INFECT:
+                act_infect(x, grid);
+                ok = 1;
+                break;
+            case IFEMPTY:
+                act_ifempty(x, grid);
+                break;
+            case IFENEMY:
+                act_ifenemy(x, grid);
+                break;
+            case IFSAME:
+                act_ifsame(x, grid);
+                break;
+            case IFWALL:
+                act_ifwall(x, grid);
+                break;
+            case GO:
+                act_go(x, grid);
+                break;
+            default:
+                assert(0);
+                break;
+        }
+    }
+}
+
+void simulate(world_t &x) {
+    for (int i = 0; i < x.numCreatures; ++i) {
+        act(x.creatures[i], x.grid);
+    }
+}
+
 void test(creature_t * x) {
     cout << x->location.r << endl;
     cout << x->location.c << endl;
