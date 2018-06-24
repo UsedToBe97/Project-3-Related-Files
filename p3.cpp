@@ -9,14 +9,13 @@
 using namespace std;
 #define NUM_ORDER 9
 
-//species_t spes[111];
-world_t WD;
-string map[111];
 void display(grid_t x) {
     for (int i = 0; i < x.height; ++i) {
         for (int j = 0; j < x.width; ++j) {
             string t = "";
-            if (x.squares[i][j] == nullptr) t = "____";
+            if (x.squares[i][j] == nullptr) {
+                t = "____";
+            }
             else {
                 creature_t tmp = *x.squares[i][j];
                 t = tmp.species->name.substr(0, 2);
@@ -36,7 +35,10 @@ void test(creature_t * x) {
     cout << x->ability[0] << " / " << x->ability[1] << endl;
     cout << (x->species)->name << endl;
 }
+
 int main(int argc, char *argv[]) {
+    world_t WD;
+    string map[111];
     cout << argc << endl;
     printf("%s\n", argv[0]);
 
@@ -127,11 +129,14 @@ int main(int argc, char *argv[]) {
     }
     grid.height = r;
     grid.width = c;
-
+    for (int i = 0; i < r; ++i) 
+        for (int j = 0; j < c; ++j) grid.squares[i][j] = nullptr;
+    WD.numCreatures = 0;
     string crea_info[111];
     while (getline(ifs_world, str)) {
         //if (str == "\n") continue;
         crea_info[WD.numCreatures++] = str;
+        cout << "here" << endl;
         cout << str + "~~~" << endl;
     }
     for (int i = 0; i < WD.numCreatures; ++i) {
@@ -143,6 +148,7 @@ int main(int argc, char *argv[]) {
         creature_t &tmpcrea = WD.creatures[i]; 
         tmpcrea.location.r = x;
         tmpcrea.location.c = y;
+        tmpcrea.ability[0] = tmpcrea.ability[1] = 0;
         if (a1[0]) {
             if (a1[0] == 'f') 
                 tmpcrea.ability[0] = 1;
@@ -157,14 +163,14 @@ int main(int argc, char *argv[]) {
         for (int j = 0; j < 4; ++j)
             if ((string)dir == directName[j])
                 tmpcrea.direction = direction_t(j);
-    
+
         for (int j = 0; j < WD.numSpecies; ++j)
             if ((string)name == WD.species[j].name)
                 tmpcrea.species = &WD.species[j];
         test(&WD.creatures[i]);
         grid.squares[x][y] = &WD.creatures[i];
     }
-
+    cout << "there" << endl;
     for (int i = 0; i < r; ++i)
         for (int j = 0; j < c; ++j) {
             for (int k = 0; k < 4; ++k) {
