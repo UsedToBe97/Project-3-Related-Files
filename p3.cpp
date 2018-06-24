@@ -31,6 +31,7 @@ void display(grid_t x) {
 bool dohill(creature_t &x, const grid_t & grid) {
     int px = x.location.r;
     int py = x.location.c;
+    if (x.ability[FLY]) return 0;
     if (grid.terrain[px][py] == HILL) {
         if (!x.hillActive) {
             x.hillActive = 1;
@@ -47,6 +48,7 @@ bool outofbound(int nx, int ny, const grid_t & grid) {
 
 void act_hop(creature_t &x, grid_t &grid) {
     if (dohill(x, grid)) return;
+    x.hillActive = 0;
     x.programID = (x.programID + 1) % x.species->programSize;
     int px = x.location.r;
     int py = x.location.c;
@@ -64,6 +66,7 @@ void act_hop(creature_t &x, grid_t &grid) {
 
 void act_left(creature_t &x, grid_t &grid) {
     if (dohill(x, grid)) return;
+    x.hillActive = 0;
     x.programID = (x.programID + 1) % x.species->programSize;
     int t = (int)(x.direction) + 3;
     t %= 4;
@@ -72,6 +75,7 @@ void act_left(creature_t &x, grid_t &grid) {
 
 void act_right(creature_t &x, grid_t &grid) {
     if (dohill(x, grid)) return;
+    x.hillActive = 0;
     x.programID = (x.programID + 1) % x.species->programSize;
     int t = (int)(x.direction) + 1;
     t %= 4;
@@ -80,77 +84,175 @@ void act_right(creature_t &x, grid_t &grid) {
 
 void act_infect(creature_t &x, grid_t &grid) {
     if (dohill(x, grid)) return;
+    x.hillActive = 0;
     x.programID = (x.programID + 1) % x.species->programSize;
     int px = x.location.r, py = x.location.c;
     int dx[4] = {0, 1, 0, -1}, dy[4] = {1, 0, -1, 0};
     int nx = px + dx[x.direction], ny = py + dy[x.direction];
     if (x.ability[ARCH]) {
-        
+        nx = px, ny = py;
+        while (1) {
+            nx += dx[x.direction];
+            ny += dy[x.direction];
+            if (outofbound(nx, ny, grid)) return;
+            if (grid.squares[nx][ny] == nullptr) continue;
+            if (grid.squares[nx][ny]->species == grid.squares[px][py]->species) continue;
+            creature_t *t = grid.squares[px][py];
+            t->species = grid.squares[nx][nx]->species;
+            t->programID = 0;
+        }
     } else {
         if (outofbound(nx, ny, grid)) return;
-        if (grid.squares[nx][ny] != nullptr) return;
+        if (grid.squares[nx][ny] == nullptr) return;
         if (grid.terrain[nx][ny] == FOREST) return;
         if (grid.squares[nx][ny]->species == grid.squares[px][py]->species) return;
         
         //grid.squares[px][py]->species = grid.squares[px][py]->species;
-        creature_t *t = grid.squares[px][py];
-        t->species = grid.squares[nx][nx]->species;
-        //t->
+        creature_t *t = grid.squares[nx][ny];
+        // cout << t->species->name << endl;
+        t->species = grid.squares[px][py]->species;
+        // cout << t->species->name << endl;
+        t->programID = 0;
     }
 }
 
-void act_ifempty(creature_t &x, grid_t &grid) {}
-void act_ifenemy(creature_t &x, grid_t &grid) {}
-void act_ifsame(creature_t &x, grid_t &grid) {}
-void act_ifwall(creature_t &x, grid_t &grid) {}
-void act_go(creature_t &x, grid_t &grid) {}
-
-void act(creature_t &x, grid_t &grid) {
-    int id = x.programID;
+void act_ifempty(creature_t &x, grid_t &grid, int to) {
+    if (dohill(x, grid)) return;
+    x.hillActive = 0;
+    int px = x.location.r, py = x.location.c;
+    int dx[4] = {0, 1, 0, -1}, dy[4] = {1, 0, -1, 0};
+    int nx = px + dx[x.direction], ny = py + dy[x.direction];
+    if (outofbound(nx, ny, grid) || (grid.squares[nx][ny] != nullptr && grid.terrain[nx][ny] != FOREST))
+        x.programID = (x.programID + 1) % x.species->programSize;
+    else x.programID = to;
+}
+void act_ifenemy(creature_t &x, grid_t &grid, int to) {
+    if (dohill(x, grid)) return;
+    x.hillActive = 0;
+    int px = x.location.r, py = x.location.c;
+    int dx[4] = {0, 1, 0, -1}, dy[4] = {1, 0, -1, 0};
+    int nx = px + dx[x.direction], ny = py + dy[x.direction];
+    // cout << x.species->programSize << endl;
+    if (outofbound(nx, ny, grid) || grid.squares[nx][ny] == nullptr || grid.squares[nx][ny]->species == grid.squares[px][py]->species || grid.terrain[nx][ny] == FOREST) {
+        x.programID = (x.programID + 1) % x.species->programSize;
+        // cout << x.programID << endl;
+        // cout << "fail" << endl;
+    }
+    else x.programID = to;
+}
+void act_ifsame(creature_t &x, grid_t &grid, int to) {
+    if (dohill(x, grid)) return;
+    x.hillActive = 0;
+    int px = x.location.r, py = x.location.c;
+    int dx[4] = {0, 1, 0, -1}, dy[4] = {1, 0, -1, 0};
+    int nx = px + dx[x.direction], ny = py + dy[x.direction];
+    if (outofbound(nx, ny, grid) || grid.squares[nx][ny] == nullptr || grid.squares[nx][ny]->species != grid.squares[px][py]->species || grid.terrain[nx][ny] == FOREST)
+        x.programID = (x.programID + 1) % x.species->programSize;
+    else x.programID = to;
+}
+void act_ifwall(creature_t &x, grid_t &grid, int to) {
+    if (dohill(x, grid)) return;
+    x.hillActive = 0;
+    int px = x.location.r, py = x.location.c;
+    int dx[4] = {0, 1, 0, -1}, dy[4] = {1, 0, -1, 0};
+    int nx = px + dx[x.direction], ny = py + dy[x.direction];
+    if (outofbound(nx, ny, grid) || (x.ability[FLY] == 0 && grid.terrain[nx][ny] == LAKE))
+        x.programID = to;
+    else x.programID = (x.programID + 1) % x.species->programSize;
+}
+void act_go(creature_t &x, grid_t &grid, int to) {
+    if (dohill(x, grid)) return;
+    x.hillActive = 0;
+    x.programID = to;
+}
+string parseint(int x) {
+    if (x == 0) return "0";
+    else {
+        string s = "";
+        while (x) {
+            char ch = x % 10 + '0';
+            x /= 10;
+            s = ch + s;
+        }
+        return s;
+    }
+}
+void act(creature_t &x, grid_t &grid, bool verbose) {
+    int id;
     bool ok = 0;
+    string msg = "Creature (" + x.species->name + " " + directName[x.direction] + " ";
+    msg += parseint(x.location.r) + " " + parseint(x.location.c) + ") takes action:";
+    if (verbose) msg += '\n'; else msg += ' ';
     while (!ok) {
-        switch ((x.species)->program[id].op) {
+        id = x.programID;
+        switch (x.species->program[x.programID].op) {
             case HOP: 
                 act_hop(x, grid);
+                if (!verbose) msg += "hop\n";
+                else msg += "Instruction " + parseint(id + 1) + ": hop\n";
                 ok = 1;
                 break;
             case LEFT:
                 act_left(x, grid);
+                if (!verbose) msg += "left\n";
+                else msg += "Instruction " + parseint(id + 1) + ": left\n";
                 ok = 1;
                 break;
             case RIGHT:
                 act_right(x, grid);
+                if (!verbose) msg += "right\n";
+                else msg += "Instruction " + parseint(id + 1) + ": right\n";
                 ok = 1;
                 break;
             case INFECT:
                 act_infect(x, grid);
+                if (!verbose) msg += "infect\n";
+                else msg += "Instruction " + parseint(id + 1) + ": infect\n";
                 ok = 1;
                 break;
             case IFEMPTY:
-                act_ifempty(x, grid);
+                act_ifempty(x, grid, (int)x.species->program[id].address - 1);
+                if (verbose)
+                    msg += "Instruction " + parseint(id + 1) + ": ifempty " + parseint((int)x.species->program[id].address) + "\n";
                 break;
             case IFENEMY:
-                act_ifenemy(x, grid);
+                act_ifenemy(x, grid, (int)x.species->program[id].address - 1);
+                if (verbose)
+                    msg += "Instruction " + parseint(id + 1) + ": ifenemy " + parseint((int)x.species->program[id].address) + "\n";
                 break;
             case IFSAME:
-                act_ifsame(x, grid);
+                act_ifsame(x, grid, (int)x.species->program[id].address - 1);
+                if (verbose)
+                    msg += "Instruction " + parseint(id + 1) + ": ifsame " + parseint((int)x.species->program[id].address) + "\n";
                 break;
             case IFWALL:
-                act_ifwall(x, grid);
+                act_ifwall(x, grid, (int)x.species->program[id].address - 1);
+                if (verbose)
+                    msg += "Instruction " + parseint(id + 1) + ": ifwall " + parseint((int)x.species->program[id].address) + "\n";
                 break;
             case GO:
-                act_go(x, grid);
+                act_go(x, grid, (int)x.species->program[id].address - 1);
+                if (verbose)
+                    msg += "Instruction " + parseint(id + 1) + ": go " + parseint((int)x.species->program[id].address) + "\n";
                 break;
             default:
                 assert(0);
                 break;
         }
     }
+    cout << msg;
+    if (verbose) display(grid);
 }
 
-void simulate(world_t &x) {
-    for (int i = 0; i < x.numCreatures; ++i) {
-        act(x.creatures[i], x.grid);
+void simulate(world_t &x, int lmt, bool verbose) {
+    cout << "Initial state" << endl;
+    display(x.grid);
+    for (int rd = 1; rd <= lmt; ++rd) {
+        cout << "Round " + parseint(rd) + "\n";
+        for (int i = 0; i < x.numCreatures; ++i) {
+            act(x.creatures[i], x.grid, verbose);
+        }
+        if (!verbose) display(x.grid);
     }
 }
 
@@ -165,16 +267,16 @@ void test(creature_t * x) {
 int main(int argc, char *argv[]) {
     world_t WD;
     string map[111];
-    cout << argc << endl;
-    printf("%s\n", argv[0]);
+    //cout << argc << endl;
+    //printf("%s\n", argv[0]);
 
     ifstream ifs_species_summary;
     string dir = argv[1];
     dir = "./Tests/" + dir;
-    cout << dir << endl;
+    //cout << dir << endl;
     ifs_species_summary.open(dir);
-    cout << ifs_species_summary.good() << endl;
-    cout << endl;
+    //cout << ifs_species_summary.good() << endl;
+    //cout << endl;
     // ifs_species_summary
 
     string str, dirstr;
@@ -231,15 +333,15 @@ int main(int argc, char *argv[]) {
 
         //cout << endl;
     }
-    cout << "total : " << cc << endl;
+    //cout << "total : " << cc << endl;
     WD.numSpecies = cc;
 
-    cout << "Creatures finished" << endl << endl << "/////////////////////" << endl << endl;
-    cout << "begin to read world:" << endl << endl;
+    //cout << "Creatures finished" << endl << endl << "/////////////////////" << endl << endl;
+    //cout << "begin to read world:" << endl << endl;
 
     ifstream ifs_world;
     ifs_world.open("./Tests/world-tests/" + string(argv[2]));
-    cout << ifs_world.good() << endl;
+    //cout << ifs_world.good() << endl;
 
     int r = 0, c = 0;
     grid_t &grid = WD.grid;
@@ -251,7 +353,7 @@ int main(int argc, char *argv[]) {
 
     for (int i = 0; i < r; ++i) {
         getline(ifs_world, map[i]);
-        cout << map[i] << endl;
+        //cout << map[i] << endl;
     }
     grid.height = r;
     grid.width = c;
@@ -262,15 +364,15 @@ int main(int argc, char *argv[]) {
     while (getline(ifs_world, str)) {
         //if (str == "\n") continue;
         crea_info[WD.numCreatures++] = str;
-        cout << "here" << endl;
-        cout << str + "~~~" << endl;
+        //cout << "here" << endl;
+        //cout << str + "~~~" << endl;
     }
     for (int i = 0; i < WD.numCreatures; ++i) {
         char name[111], dir[111], a1[5], a2[5];
         int x, y;
         a1[0] = a2[0] = 0;
         sscanf(crea_info[i].c_str(), "%s%s%d%d%s%s", name, dir, &x, &y, a1, a2);
-        cout << "nxt " << endl;
+        //cout << "nxt " << endl;
         creature_t &tmpcrea = WD.creatures[i]; 
         tmpcrea.location.r = x;
         tmpcrea.location.c = y;
@@ -293,10 +395,10 @@ int main(int argc, char *argv[]) {
         for (int j = 0; j < WD.numSpecies; ++j)
             if ((string)name == WD.species[j].name)
                 tmpcrea.species = &WD.species[j];
-        test(&WD.creatures[i]);
+        //test(&WD.creatures[i]);
         grid.squares[x][y] = &WD.creatures[i];
     }
-    cout << "there" << endl;
+    //cout << "there" << endl;
     for (int i = 0; i < r; ++i)
         for (int j = 0; j < c; ++j) {
             for (int k = 0; k < 4; ++k) {
@@ -305,6 +407,6 @@ int main(int argc, char *argv[]) {
                 }
             }
         }
-    display(WD.grid);
+    simulate(WD, 20, 0);
     return 0;
 }
