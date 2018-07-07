@@ -8,7 +8,7 @@
 #include "world_type.h"
 using namespace std;
 #define NUM_ORDER 9
-
+//haha
 void display(grid_t x) {
     for (int i = 0; i < x.height; ++i) {
         for (int j = 0; j < x.width; ++j) {
